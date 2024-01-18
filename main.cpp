@@ -17,6 +17,7 @@
 #include "ColorMap.hpp"
 #include "CustomAudioStream.hpp"
 #include "SamplesRenderer.hpp"
+#include "FrequencyRenderer.hpp"
 
 std::vector<Agent> build_list_of_agents_uniform_circle(int nb_of_agents) {
 	
@@ -71,6 +72,51 @@ std::vector<Agent> build_list_of_agents_random_inside_circle(int nb_of_agents, f
 	return list_of_agents;
 }
 
+std::vector<float> computeFrequencyAmplitudes(int currentIndex, int nbOfSamples, const sf::Int16* samples) {
+	double* in1;
+	double* in2;
+	fftw_complex *out1;
+	fftw_complex* out2;
+	fftw_plan p1;
+	fftw_plan p2;
+
+	in1 = (double*)fftw_malloc(sizeof(double) * nbOfSamples);
+	in2 = (double*)fftw_malloc(sizeof(double) * nbOfSamples);
+	out1 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * nbOfSamples);
+	out2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * nbOfSamples);
+
+	for (int i = 0; i < nbOfSamples; i++) {
+		in1[i] = static_cast<double>(samples[currentIndex + 2 * i]);
+		in2[i] = static_cast<double>(samples[currentIndex + 2 * i + 1]);
+
+	}
+	p1 = fftw_plan_dft_r2c_1d(nbOfSamples, in1, out1, FFTW_ESTIMATE);
+
+	fftw_execute(p1);
+
+	p2 = fftw_plan_dft_r2c_1d(nbOfSamples, in2, out2, FFTW_ESTIMATE);
+
+	fftw_execute(p2);
+
+	std::vector<float> amplitudes;
+
+	for (int i = 0; i < nbOfSamples / 2; i++) {
+		double amplitude1{ sqrt(out1[i][0] * out1[i][0] + out1[i][1] * out1[i][1]) };
+		double amplitude2{ sqrt(out2[i][0] * out2[i][0] + out2[i][1] * out2[i][1]) };
+		amplitudes.push_back(static_cast<float>((1.0 / nbOfSamples) * (amplitude1 + amplitude2)));
+		//amplitudes.push_back(static_cast<float>((1.0 / nbOfSamples) * sqrt(out1[i][0] * out1[i][0] + out1[i][1] * out1[i][1])));
+	}
+
+	fftw_destroy_plan(p1);
+	fftw_free(in1);
+	fftw_free(out1);
+	fftw_destroy_plan(p2);
+	fftw_free(in2);
+	fftw_free(out2);
+
+	return amplitudes;
+}
+
 int main()
 {
 	// Load audio file
@@ -78,7 +124,7 @@ int main()
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 	sf::SoundBuffer buffer;
-	if (!buffer.loadFromFile("audio/lm.wav"))
+	if (!buffer.loadFromFile("audio/SineToSaw.wav"))
 	{
 		std::cout << "Failed to load audio file!" << std::endl;
 		return -1;
@@ -88,25 +134,33 @@ int main()
 	sf::Uint64 sampleCount = buffer.getSampleCount();
 	unsigned int sampleRate = buffer.getSampleRate();
 
-	int window_width{ 22050 };
-	int window_height{ 600 };
+	std::vector<float> amplitudes;
+
+	int window_width{ 1900 };
+	int window_height{ 1080 };
 
 	Grid grid(static_cast<float>(window_width), static_cast<float>(window_height));
-	int nbSamplesToDraw = 88200;
-	SamplesRenderer samplesRenderer{ buffer, grid, nbSamplesToDraw};
+
+	int nbSamplesToDraw = 11025;
+	Grid grid2(6400.0f, 540.0f);
+	SamplesRenderer samplesRenderer{ buffer, grid2, nbSamplesToDraw};
+	Grid grid3(1900.0f, 540.0f);
+	FrequencyRenderer frequencyRenderer{ grid3, static_cast<int>(sampleRate) };
 
 	// initialize and play our custom stream
 	MyStream playing_stream;
 	playing_stream.load(buffer);
 
 	// Create window for visualization
-	sf::RenderWindow window(sf::VideoMode(1600, 600), "Samples");
+	sf::RenderWindow window(sf::VideoMode(window_width, window_height), "Samples");
 
 	// Start playing the sound
 	playing_stream.play();
 	sf::Clock globalClock;
-	sf::Clock clock;
-	sf::Time elapsed1 = clock.getElapsedTime();
+	sf::Clock clockSamples;
+	sf::Time elapsedSamples = clockSamples.getElapsedTime();
+	sf::Clock clockFrequency;
+	sf::Time elapsedFrequency = clockFrequency.getElapsedTime();
 	int currentSampleIndex{};
 
 	// Main loop
@@ -126,48 +180,25 @@ int main()
 
 		currentSampleIndex = playing_stream.getCurrentSampleIndex(playing_stream.getPlayingOffset());
 
-		if (elapsed1.asSeconds() > 0.0166f) {
-			samplesRenderer.renderSamples(globalClock.getElapsedTime().asSeconds() * sampleRate);
-			clock.restart();
+		if (elapsedFrequency.asSeconds() > 1.0f/24.0f) {
+			amplitudes = computeFrequencyAmplitudes(currentSampleIndex, sampleRate * 1.0f/15.0f, samples);
+			frequencyRenderer.renderFrequencies(amplitudes);
+			clockFrequency.restart();
 		}
-
-
-		//std::cout << currentSampleIndex << " ; " << elapsed1.asSeconds() * sampleRate << std::endl;
+		if (elapsedSamples.asSeconds() > 1.0f / 60.0f) {
+			samplesRenderer.renderSamples(globalClock.getElapsedTime().asSeconds() * sampleRate);
+			clockSamples.restart();
+		}
 		
-		//renderer.render_agents();
 		window.clear(sf::Color::Black);
+		window.draw(frequencyRenderer.verticesToDraw);
 		window.draw(samplesRenderer.chunkToDraw1);
 		window.draw(samplesRenderer.chunkToDraw2);
-		//window.draw(samplesRenderer.verticesChannel1[currentSampleIndex: currentSampleIndex + nbSamplesToDraw];
-		//window.draw(samplesRenderer.verticesChannel2);
 
-		// Calculate the frequency spectrum
-		/*
-		std::vector<float> spectrum(88200 / 2);
-		for (std::size_t i = currentSampleIndex; i < currentSampleIndex + 88200 / 2; ++i)
-		{
-			float sum = 0;
-			for (unsigned int j = 0; j < 2; ++j)
-			{
-				sum += samples[i * 2 + j];
-			}
-			spectrum[i - currentSampleIndex] = sum / 2.0;
-		}
-		*/
-
-		// Update the size of the frequency bars based on the spectrum data
-		/*
-		for (std::size_t i = 0; i < 44100; ++i)
-		{
-			bar.setSize(sf::Vector2f(bar.getSize().x, samples[441000 + 2*i]));
-			bar.setPosition(i * bar.getSize().x, window.getSize().y);
-			window.draw(bar);
-		}
-		*/
-		//std::cout << "Fok" << std::endl;
 		// Display the window
 		window.display();
-		elapsed1 = clock.getElapsedTime();
+		elapsedFrequency = clockFrequency.getElapsedTime();
+		elapsedSamples = clockSamples.getElapsedTime();
 	}
 
 	return 0;

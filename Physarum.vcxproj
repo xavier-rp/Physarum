@@ -140,6 +140,7 @@
     <ClInclude Include="ColorMap.hpp" />
     <ClInclude Include="CustomAudioStream.hpp" />
     <ClInclude Include="FFTPlanner.hpp" />
+    <ClInclude Include="FrequencyRenderer.hpp" />
     <ClInclude Include="Grid.hpp" />
     <ClInclude Include="Renderer.hpp" />
     <ClInclude Include="SamplesRenderer.hpp" />
