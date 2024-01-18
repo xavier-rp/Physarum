@@ -124,7 +124,7 @@ int main()
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 	sf::SoundBuffer buffer;
-	if (!buffer.loadFromFile("audio/SineToSaw.wav"))
+	if (!buffer.loadFromFile("audio/lm.wav"))
 	{
 		std::cout << "Failed to load audio file!" << std::endl;
 		return -1;
@@ -180,8 +180,8 @@ int main()
 
 		currentSampleIndex = playing_stream.getCurrentSampleIndex(playing_stream.getPlayingOffset());
 
-		if (elapsedFrequency.asSeconds() > 1.0f/24.0f) {
-			amplitudes = computeFrequencyAmplitudes(currentSampleIndex, sampleRate * 1.0f/15.0f, samples);
+		if (elapsedFrequency.asSeconds() > 1.0f/48.0f) {
+			amplitudes = computeFrequencyAmplitudes(currentSampleIndex, 11025, samples);//sampleRate * 1.0f/15.0f, samples);
 			frequencyRenderer.renderFrequencies(amplitudes);
 			clockFrequency.restart();
 		}
@@ -204,57 +204,9 @@ int main()
 	return 0;
 }
 
-int main72()
-{
-	// load an audio buffer from a sound file
-	sf::SoundBuffer buffer;
-	buffer.loadFromFile("audio/lm.wav");
-	const sf::Int16* Samples = buffer.getSamples();
-	sf::Uint64 sample_count = buffer.getSampleCount();
-	unsigned int SampleRate = buffer.getSampleRate();
-
-	// initialize and play our custom stream
-	MyStream playing_stream;
-	playing_stream.load(buffer);
-
-	playing_stream.play();
-
-	
-
-	// let it play until it is finished
-	sf::Clock clock;
-	sf::Time elapsed1 = clock.getElapsedTime();
-	int currentSampleIndex{};
-
-	while (elapsed1.asSeconds() < 5.0f) {
-		elapsed1 = clock.getElapsedTime();
-		currentSampleIndex = playing_stream.getCurrentSampleIndex(playing_stream.getPlayingOffset());
-		std::cout << elapsed1.asSeconds() << " ; " << currentSampleIndex << std::endl;
-	}
-
-	playing_stream.stop();		
-
-	return 0;
-}
-
-int main3() {
-	/*
-	// load an audio buffer from a sound file
-	sf::SoundBuffer buffer;
-	buffer.loadFromFile("audio/lm.wav");
-
-	const sf::Int16* Samples = buffer.getSamples();
-	sf::Uint64 sample_count = buffer.getSampleCount();
-
-
-	std::cout << sample_count << std::endl;
-
-	
-	for (int i = 0; i < sample_count; i++) {
-		std::cout << *(Samples + i) << std::endl;
-	}
-	*/
-	
+int main2() {
+	sf::ContextSettings settings;
+	settings.antialiasingLevel = 8;
 
 	sf::Music music;
 
