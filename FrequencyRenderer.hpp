@@ -37,24 +37,43 @@ public:
 			allTimeMax = maximumAmplitude;
 		}
 
-		for (int i = 0; i < amplitudes.size() ; i++) {
-			if (i >= binsToCut) {
-				//verticesToDraw[i].position = sf::Vector2f(std::log10(static_cast<float>(i) / static_cast<float>(sampleRate / 2) * grid.width) / std::log10(grid.width) * grid.width, -amplitudes[i] + grid.height);// (1.0 - amplitudes[i] / maximumAmplitude)* grid.height);
-				
-				// Logscale
-				//verticesToDraw[i].position = sf::Vector2f(std::log10(static_cast<float>(i) / static_cast<float>(amplitudes.size()) * grid.width) / std::log10(grid.width) * grid.width, -std::log10(amplitudes[i] + 1.0f) / std::log10(maximumAmplitude + 1.0f) * grid.height + 2*grid.height);
-				verticesToDraw[i].position = sf::Vector2f(std::log10(static_cast<float>(i) / static_cast<float>(amplitudes.size()) * grid.width) / std::log10(grid.width) * grid.width, -std::log10(amplitudes[i] + 1.0f) / std::log10(allTimeMax + 1.0f) * grid.height + 2 * grid.height);
+		if (maximumAmplitude > 0.0f) {
+			for (int i = 0; i < amplitudes.size(); i++) {
+				if (i >= binsToCut) {
+					//verticesToDraw[i].position = sf::Vector2f(std::log10(static_cast<float>(i) / static_cast<float>(sampleRate / 2) * grid.width) / std::log10(grid.width) * grid.width, -amplitudes[i] + grid.height);// (1.0 - amplitudes[i] / maximumAmplitude)* grid.height);
 
-				// Linear
-				//verticesToDraw[i].position = sf::Vector2f(static_cast<float>(i) / static_cast<float>(amplitudes.size()) * grid.width, -std::log10(amplitudes[i] + 1.0f) / std::log10(maximumAmplitude + 1.0f) * grid.height + grid.height);
-				verticesToDraw[i].color = sf::Color::Green;
-			}
-			else {
-				verticesToDraw[i].position = sf::Vector2f(0.0f, 2*grid.height);
-				verticesToDraw[i].color = sf::Color::Green;
+					// Logscale frequencies
+					//verticesToDraw[i].position = sf::Vector2f(std::log10(static_cast<float>(i) / static_cast<float>(amplitudes.size()) * grid.width) / std::log10(grid.width) * grid.width, -std::log10(amplitudes[i] + 1.0f) / std::log10(maximumAmplitude + 1.0f) * grid.height + 2*grid.height);
+					verticesToDraw[i].position = sf::Vector2f(std::log10(static_cast<float>(i) / static_cast<float>(amplitudes.size()) * grid.width) / std::log10(grid.width) * grid.width, -std::log10(amplitudes[i] + 1.0f) / std::log10(allTimeMax + 1.0f) * grid.height + 2 * grid.height);
+
+					// Linear frequencies
+					//verticesToDraw[i].position = sf::Vector2f(static_cast<float>(i) / static_cast<float>(amplitudes.size()) * grid.width, -std::log10(amplitudes[i] + 1.0f) / std::log10(maximumAmplitude + 1.0f) * grid.height + 2*grid.height);
+					verticesToDraw[i].color = sf::Color::Green;
+				}
+				else {
+					verticesToDraw[i].position = sf::Vector2f(0.0f, 2 * grid.height);
+					verticesToDraw[i].color = sf::Color::Green;
+				}
+
 			}
 
 		}
+		else {
+			for (int i = 0; i < amplitudes.size(); i++) {
+				if (i >= binsToCut) {
+					verticesToDraw[i].position = sf::Vector2f(std::log10(static_cast<float>(i) / static_cast<float>(amplitudes.size()) * grid.width) / std::log10(grid.width) * grid.width, 2 * grid.height - 100.0f);
+
+					verticesToDraw[i].color = sf::Color::Green;
+				}
+				else {
+					verticesToDraw[i].position = sf::Vector2f(0.0f, 2 * grid.height - 100.0f);
+					verticesToDraw[i].color = sf::Color::Green;
+				}
+
+			}
+
+		}
+
 
 	}
 };
