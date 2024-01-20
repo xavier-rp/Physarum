@@ -19,7 +19,7 @@
 #include "SamplesRenderer.hpp"
 #include "FrequencyRenderer.hpp"
 
-std::vector<Agent> build_list_of_agents_uniform_circle(int nb_of_agents) {
+std::vector<Agent> build_list_of_agents_origin_radial(int nb_of_agents) {
 	
 	std::vector<Agent> list_of_agents;
 
@@ -32,7 +32,7 @@ std::vector<Agent> build_list_of_agents_uniform_circle(int nb_of_agents) {
 	return list_of_agents;
 }
 
-std::vector<Agent> build_list_of_agents_random(int nb_of_agents, Grid& grid) {
+std::vector<Agent> build_list_of_agents_random_in_grid(int nb_of_agents, Grid& grid) {
 
 	std::vector<Agent> list_of_agents;
 
@@ -52,7 +52,7 @@ std::vector<Agent> build_list_of_agents_random(int nb_of_agents, Grid& grid) {
 	return list_of_agents;
 }
 
-std::vector<Agent> build_list_of_agents_random_inside_circle(int nb_of_agents, float radius) {
+std::vector<Agent> build_list_of_agents_random_on_circle(int nb_of_agents, float radius) {
 
 	std::vector<Agent> list_of_agents;
 
@@ -72,6 +72,27 @@ std::vector<Agent> build_list_of_agents_random_inside_circle(int nb_of_agents, f
 	return list_of_agents;
 }
 
+std::vector<Agent> build_list_of_agents_random_inside_circle(int nb_of_agents, float radius) {
+
+	std::vector<Agent> list_of_agents;
+
+	std::random_device rd{};
+	std::mt19937 gen{rd()};
+
+	//std::normal_distribution<> d{0.0, 10.0};
+	std::uniform_real_distribution<float> dis_theta{0.0, 360.0};
+	std::uniform_real_distribution<float> dis_zero_one{0.0f, 1.0f};
+	float theta{};
+
+	for (int i{ 0 }; i < nb_of_agents; i++) {
+		float radius_multiplicator{ dis_zero_one(gen) };
+		theta = dis_theta(gen);
+		list_of_agents.push_back(Agent{ sf::Vector2f {cos(theta)* radius * radius_multiplicator, sin(theta)* radius * radius_multiplicator}, dis_theta(gen) });
+	}
+
+	return list_of_agents;
+}
+
 std::vector<float> computeFrequencyAmplitudes(int currentIndex, int nbOfSamples, const sf::Int16* samples) {
 	double* in1;
 	double* in2;
@@ -85,9 +106,17 @@ std::vector<float> computeFrequencyAmplitudes(int currentIndex, int nbOfSamples,
 	out1 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * nbOfSamples);
 	out2 = (fftw_complex*)fftw_malloc(sizeof(fftw_complex) * nbOfSamples);
 
+	int centeringIndex{ 0 };
 	for (int i = 0; i < nbOfSamples; i++) {
-		in1[i] = static_cast<double>(samples[currentIndex + 2 * i]);
-		in2[i] = static_cast<double>(samples[currentIndex + 2 * i + 1]);
+		centeringIndex = currentIndex;// - nbOfSamples / 2;
+		if (centeringIndex < 0) {
+			in1[i] = static_cast<double>(0);
+			in2[i] = static_cast<double>(0);
+		}
+		else {
+			in1[i] = static_cast<double>(samples[centeringIndex + 2 * i]);
+			in2[i] = static_cast<double>(samples[centeringIndex + 2 * i + 1]);
+		}
 
 	}
 	p1 = fftw_plan_dft_r2c_1d(nbOfSamples, in1, out1, FFTW_ESTIMATE);
@@ -123,6 +152,123 @@ int main()
 	// load an audio buffer from a sound file
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
+	int FFTLength = 8192;//16384;
+
+	sf::SoundBuffer buffer;
+	if (!buffer.loadFromFile("audio/lm.wav"))
+	{
+		std::cout << "Failed to load audio file!" << std::endl;
+		return -1;
+	}
+
+	const sf::Int16* samples = buffer.getSamples();
+	sf::Uint64 sampleCount = buffer.getSampleCount();
+	unsigned int sampleRate = buffer.getSampleRate();
+
+	std::vector<float> amplitudes;
+
+	int window_width{ 600 };
+	int window_height{ 400 };
+
+	ColorMap color_map{ 100, "purple_white", false, false, 1 };
+
+	TrailMap trail_map(window_width, window_height);
+
+	Grid grid(static_cast<float>(window_width), static_cast<float>(window_height));
+
+	sf::RenderWindow window(sf::VideoMode(window_width, window_height), "Physarum.exe");
+
+	std::vector<Agent> list_of_agents;
+
+	list_of_agents = build_list_of_agents_random_inside_circle(40000, window_width / 5.0f);
+	//list_of_agents = build_list_of_agents_uniform_circle(10000);
+	//list_of_agents = build_list_of_agents_random_in_grid(5000, grid);
+
+	Simulation sim{ grid, list_of_agents, trail_map };
+	sim.set_FFT_parameters(sampleRate, FFTLength);
+
+	Renderer renderer{ sim, grid, color_map };
+
+	// initialize and play our custom stream
+	MyStream playing_stream;
+	playing_stream.load(buffer);
+
+	// Start playing the sound
+	playing_stream.play();
+	sf::Clock globalClock;
+	sf::Clock loopClock;
+	sf::Time elapsedLoop = loopClock.getElapsedTime();
+	sf::Clock clockFrequency;
+	sf::Time elapsedFrequency = clockFrequency.getElapsedTime();
+	int currentSampleIndex{};
+
+	// Main loop
+	while (window.isOpen())
+	{
+		// Handle events
+		sf::Event event;
+		while (window.pollEvent(event))
+		{
+			if (event.type == sf::Event::Closed)
+				window.close();
+		}
+
+
+		renderer.render_trail_map();
+		//renderer.render_agents();
+		window.clear(sf::Color::Black);
+		window.draw(renderer.trail_map_vertices);
+		//window.draw(renderer.agent_vertices);
+		window.display();
+
+		sim.set_amplitudes(computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples));//(currentSampleIndex, 16384, samples);
+		sim.compute_band_energy();
+		//std::cout << sim.stepCount << "  " << sim.stepCount % 100 << std::endl;
+		if (elapsedLoop.asSeconds() > 0.1) { // && sim.stepCount % 26 >= 25
+			loopClock.restart();
+			sim.perturbation_flag = true;
+		}
+		//sim.set_amplitudes(computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples));//(currentSampleIndex, 16384, samples);
+		//sim.compute_band_energy();
+
+		sim.step();
+		sim.perturbation_flag = false;
+		elapsedLoop = loopClock.getElapsedTime();
+		// Clear the window
+		/*
+		window.clear();
+
+		currentSampleIndex = playing_stream.getCurrentSampleIndex(playing_stream.getPlayingOffset());
+		if (elapsedSamples.asSeconds() > 1.0f / 60.0f) {
+			samplesRenderer.renderSamples(globalClock.getElapsedTime().asSeconds() * sampleRate);
+			clockSamples.restart();
+		}
+		if (elapsedFrequency.asSeconds() > 1.0f / 48.0f) {
+			amplitudes = computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples);//(currentSampleIndex, 16384, samples);
+			frequencyRenderer.renderFrequencies(amplitudes);
+			clockFrequency.restart();
+		}
+
+
+		window.clear(sf::Color::Black);
+
+		// Display the window
+		window.display();
+		*/
+
+	}
+
+	return 0;
+}
+
+int main2()
+{
+	// Load audio file
+	// load an audio buffer from a sound file
+	sf::ContextSettings settings;
+	settings.antialiasingLevel = 8;
+	int FFTLength = 16384;
+
 	sf::SoundBuffer buffer;
 	if (!buffer.loadFromFile("audio/lm.wav"))
 	{
@@ -141,7 +287,7 @@ int main()
 
 	Grid grid(static_cast<float>(window_width), static_cast<float>(window_height));
 
-	int nbSamplesToDraw = 11025;
+	int nbSamplesToDraw = 44100/4;// 22050;//11025;
 	Grid grid2(6400.0f, 540.0f);
 	SamplesRenderer samplesRenderer{ buffer, grid2, nbSamplesToDraw};
 	Grid grid3(1900.0f, 540.0f);
@@ -179,16 +325,16 @@ int main()
 		window.clear();
 
 		currentSampleIndex = playing_stream.getCurrentSampleIndex(playing_stream.getPlayingOffset());
-
-		if (elapsedFrequency.asSeconds() > 1.0f/48.0f) {
-			amplitudes = computeFrequencyAmplitudes(currentSampleIndex, 11025, samples);//sampleRate * 1.0f/15.0f, samples);
-			frequencyRenderer.renderFrequencies(amplitudes);
-			clockFrequency.restart();
-		}
 		if (elapsedSamples.asSeconds() > 1.0f / 60.0f) {
 			samplesRenderer.renderSamples(globalClock.getElapsedTime().asSeconds() * sampleRate);
 			clockSamples.restart();
 		}
+		if (elapsedFrequency.asSeconds() > 1.0f/48.0f) {
+			amplitudes = computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples);//(currentSampleIndex, 16384, samples);
+			frequencyRenderer.renderFrequencies(amplitudes);
+			clockFrequency.restart();
+		}
+
 		
 		window.clear(sf::Color::Black);
 		window.draw(frequencyRenderer.verticesToDraw);
@@ -199,12 +345,13 @@ int main()
 		window.display();
 		elapsedFrequency = clockFrequency.getElapsedTime();
 		elapsedSamples = clockSamples.getElapsedTime();
+
 	}
 
 	return 0;
 }
 
-int main2() {
+int main3() {
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 

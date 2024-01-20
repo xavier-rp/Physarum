@@ -12,7 +12,21 @@
 
 
 class Simulation {
-
+private:
+	std::vector<float> amplitudes; //Returned by an FFT
+	unsigned int sampleRate;
+	int FFTLength;
+	float binSize;
+	std::vector<float> bandsRange {25.0f, 250.0f, 2000.0f, 20000.0f};
+	std::vector<float> bandsEnergy {0.0f, 0.0f, 0.0f};
+	std::vector<float> bandsAverageEnergy {0.0f, 0.0f, 0.0f};
+	std::vector<float> energyThresholds {0.0f, 0.0f, 0.0f};
+	std::vector<float> previousLowEnergy = std::vector<float>(100, 0.0f);
+	std::vector<float> previousMidEnergy = std::vector<float>(100, 0.0f); //{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+	std::vector<float> previousHighEnergy = std::vector<float>(100, 0.0f); //{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+	float averageLowEnergy{ 0.0 };
+	float averageMidEnergy{ 0.0 };
+	float averageHighEnergy{ 0.0 };
 
 public:
 	Grid grid;
@@ -21,6 +35,8 @@ public:
 	std::random_device rd{};
 	std::mt19937 gen{rd()};
 	std::uniform_real_distribution<float> dis{0.0, 1.0};
+	bool perturbation_flag{ false };
+	int stepCount{ 0 };
 
 	Simulation(Grid grid, std::vector<Agent> list_of_agents, TrailMap trail_map) :
 		grid{ grid },
@@ -33,7 +49,7 @@ public:
 
 		sf::Vector2i sensor_matrix_position;
 		sensor_matrix_position.x = static_cast<int>(agent.get_position().x + agent.sensor_offset_distance * cos(sensor_angle) + grid.x_max);
-		sensor_matrix_position.y = static_cast<int>(-1.0f * (agent.get_position().y + agent.sensor_offset_distance * sin(sensor_angle) ) + grid.y_max);
+		sensor_matrix_position.y = static_cast<int>(-1.0f * (agent.get_position().y + agent.sensor_offset_distance * sin(sensor_angle)) + grid.y_max);
 		float sum{ 0 };
 
 		for (int offset_x = -agent.sensor_width; offset_x <= agent.sensor_width; offset_x++) {
@@ -51,24 +67,27 @@ public:
 		return sum;
 	}
 
-	void update_agent_position(Agent& agent, bool perturb) {
-
-		sf::Vector2f current_position{agent.get_position()};
+	void update_agent_position(Agent& agent, bool perturb, float pertubationPower) {
 
 		if (perturb) {
-			current_position += sf::Vector2f(2.0f * (dis(gen) - 0.5f), 2.0f * (dis(gen) - 0.5f));
-			agent.orientation = 360.0f * dis(gen);
+			//current_position += sf::Vector2f(4.0f * (dis(gen) - 0.5f), 4.0f * (dis(gen) - 0.5f));
+			//agent.orientation += (360.0f * pertubationPower) * (dis(gen) - 0.5f);// dis(gen);
+			agent.update_orientation(agent.orientation + (360.0f * pertubationPower) * (dis(gen) - 0.5f));
 		}
 
+		//sf::Vector2i matrix_position;
+		//matrix_position.x = static_cast<int>(agent.get_position().x + grid.x_max);
+		//matrix_position.y = static_cast<int>(-1.0f * agent.get_position().y + grid.y_max);
 
+		update_orientation(agent);
 
-		sf::Vector2i matrix_position;
-		matrix_position.x = static_cast<int>(agent.get_position().x + grid.x_max);
-		matrix_position.y = static_cast<int>(-1.0f * agent.get_position().y + grid.y_max);
+		update_position(agent);
+		//update_position_no_stack(agent);
 
-		std::vector<sf::Vector2i> pixels_in_vicinity;
+	}
 
-		float weight_forward = sense(agent, 0);	
+	void update_orientation(Agent& agent) {
+		float weight_forward = sense(agent, 0);
 		float weight_left = sense(agent, agent.sensor_angle_offset);
 		float weight_right = sense(agent, -agent.sensor_angle_offset);
 
@@ -88,18 +107,21 @@ public:
 			else {
 				agent.update_orientation(agent.get_orientation() - agent.sensor_angle_offset * dis(gen));// TODO 0.2f is a turning speed
 			}
-
-
 		}
+	}
+
+	void update_position(Agent& agent) {
+
+		sf::Vector2f current_position{agent.get_position()};
 
 		if (current_position.x < grid.x_min || current_position.x > grid.x_max) {
 
-			current_position.x =  std::max(std::min(current_position.x, grid.x_max), grid.x_min);
+			current_position.x = std::max(std::min(current_position.x, grid.x_max), grid.x_min);
 			//agent.update_x_velocity(agent.get_velocity_vector().x * -1.0f);
 			agent.set_position(current_position);
 			agent.update_orientation(dis(gen) * 360.0f);
 		}
-		if (current_position.y < grid.y_min || current_position.y > grid.y_max) {
+		else if (current_position.y < grid.y_min || current_position.y > grid.y_max) {
 
 			current_position.y = std::max(std::min(current_position.y, grid.y_max), grid.y_min);
 			//agent.update_y_velocity(agent.get_velocity_vector().y * -1.0f);
@@ -107,11 +129,37 @@ public:
 			agent.update_orientation(dis(gen) * 360.0f);
 		}
 		else {
-			agent.set_position(agent.get_velocity_vector() + current_position);
+			agent.set_position(current_position + agent.get_velocity_vector());
 		}
+	}
 
-		
+	void update_position_no_stack(Agent& agent) {
 
+		sf::Vector2f current_position{agent.get_position()};
+
+		sf::Vector2f new_position = agent.get_velocity_vector() + current_position;
+		if (new_position.x < grid.x_min || new_position.x > grid.x_max) {
+
+			current_position.x = std::max(std::min(current_position.x, grid.x_max), grid.x_min);
+			//agent.update_x_velocity(agent.get_velocity_vector().x * -1.0f);
+			agent.set_position(current_position);
+			agent.update_orientation(dis(gen) * 360.0f);
+		}
+		else if (new_position.y < grid.y_min || new_position.y > grid.y_max) {
+
+			current_position.y = std::max(std::min(current_position.y, grid.y_max), grid.y_min);
+			//agent.update_y_velocity(agent.get_velocity_vector().y * -1.0f);
+			agent.set_position(current_position);
+			agent.update_orientation(dis(gen) * 360.0f);
+		}
+		else if (trail_map.matrix[static_cast<int>(-1.0f * new_position.y + grid.y_max)][static_cast<int>(new_position.x + grid.x_max)] < 1.0f) {
+
+			agent.set_position(new_position);
+		}
+		else {
+			agent.set_position(current_position);
+			//agent.update_orientation(dis(gen) * 360.0f);
+		}
 	}
 
 	void update_trail_map_with_agents(Agent& agent) {
@@ -121,6 +169,26 @@ public:
 		matrix_position.y = static_cast<int>(- 1.0f * agent.get_position().y + grid.y_max);
 		if (matrix_position.x < static_cast<int>(grid.width) && matrix_position.x >= 0 && matrix_position.y < static_cast<int>(grid.height) && matrix_position.y >= 0) {
 			trail_map.matrix[matrix_position.y][matrix_position.x] = 1.0f;
+
+			//draw_arrow_heads(agent, matrix_position);
+			
+		}
+
+	}
+
+	void draw_arrow_heads(Agent& agent, sf::Vector2i matrix_position) {
+
+		for (int offset_x = -1; offset_x <= 1; offset_x++) {
+			for (int offset_y = -1; offset_y <= 1; offset_y++) {
+
+				sf::Vector2i pixel_pos = sf::Vector2i(matrix_position.x, matrix_position.y) + sf::Vector2i(offset_x, offset_y);
+
+				if (pixel_pos.x < static_cast<int>(grid.width) && pixel_pos.x >= 0 && pixel_pos.y < static_cast<int>(grid.height) && pixel_pos.y >= 0
+					&& std::abs(offset_y * offset_x) == 0) {
+					//std::cout << trail_map.matrix[pixel_pos.y][pixel_pos.x] << std::endl;
+					trail_map.matrix[pixel_pos.y][pixel_pos.x] = 1.0f;
+				}
+			}
 		}
 
 	}
@@ -131,7 +199,7 @@ public:
 
 		for (int i{ 0 }; i < static_cast<int>(grid.height); i++) {
 			for (int j{ 0 }; j < static_cast<int>(grid.width); j++) {
-				float sum{};
+				float sum{ 0 };
 
 				for (int offset_x = -1; offset_x <= 1; offset_x++) {
 					for (int offset_y = -1; offset_y <= 1; offset_y++) {
@@ -160,21 +228,115 @@ public:
 	}
 
 	void step() {
+		float perturb_chance{ dis(gen) };
 		float nudge{ dis(gen) };
 		bool perturb{ false };
+		compute_band_energy();
 
-		if (nudge < 0.01) {
-			perturb = true;
-			std::cout << "Perturb!\n";
+		if (stepCount > 0) {
+			if (perturbation_flag) {
+				if (bandsEnergy[2] > averageHighEnergy) {
+					nudge = (bandsEnergy[2] - averageHighEnergy) / (energyThresholds[2] - averageHighEnergy) * 0.005; 
+					//if (nudge < bandsEnergy[1] / energyThresholds[1]) {
+						perturb = true;
+						//std::cout << stepCount << " ; " << nudge << " == " << "Perturb!\n";
+						std::cout << stepCount << " ; " << averageHighEnergy << " : " << bandsEnergy[2] << " : " << nudge <<  " == " << "Perturb!\n";
+					//}
+				}
+			}
 		}
+
 		for (Agent& agent : list_of_agents) {
 				
-			update_agent_position(agent, perturb);
+			update_agent_position(agent, perturb, nudge);
 			//update_trail_map();
 			update_trail_map_with_agents(agent);
-			
 
 		}
 
+		stepCount += 1;
+
 	}
+
+	void set_FFT_parameters(unsigned int sampleRate, int FFTLength) {
+		this->sampleRate = sampleRate;
+		this->FFTLength = FFTLength;
+		this->binSize = static_cast<float>(sampleRate) / static_cast<float>(FFTLength);
+	}
+
+	void set_amplitudes(std::vector<float> amplitudesVector) {
+		this->amplitudes = amplitudesVector;
+	}
+
+	void compute_band_energy() {
+		float energyLow{ 0 };
+		float energyMid{ 0 };
+		float energyHigh{ 0 };
+		float binFreq{ 0.0 };
+
+		for (int i = 0; i < amplitudes.size(); i++) {
+			binFreq = static_cast<float>(i) * binSize;
+			if (binFreq >= bandsRange[2] && binFreq < bandsRange[3]) {
+				energyHigh += amplitudes[i];
+			}
+			else if (binFreq >= bandsRange[1] && binFreq < bandsRange[2]) {
+				energyMid += amplitudes[i];
+			}
+			else if (binFreq >= bandsRange[0] && binFreq < bandsRange[1]) {
+				energyLow += amplitudes[i];
+			}
+
+		}
+		
+		bandsEnergy[0] = energyLow;
+		bandsEnergy[1] = energyMid;
+		bandsEnergy[2] = energyHigh;
+
+		previousLowEnergy[stepCount % 100] = energyLow;
+		previousMidEnergy[stepCount % 100] = energyMid;
+		previousHighEnergy[stepCount % 100] = energyHigh;
+
+		energyThresholds[0] = std::max(*std::max_element(previousLowEnergy.begin(), previousLowEnergy.end()), energyLow);
+		energyThresholds[1] = std::max(*std::max_element(previousMidEnergy.begin(), previousMidEnergy.end()), energyLow);//std::max(energyThresholds[1], energyMid);
+		energyThresholds[2] = std::max(*std::max_element(previousHighEnergy.begin(), previousHighEnergy.end()), energyLow);//std::max(energyThresholds[2], energyHigh);
+
+		computeAverageEnergy();
+
+	}
+
+	void computeAverageEnergy() {
+		float N{ 0.0f };
+		float averageLowEnergy{ 0.0 };
+		float averageMidEnergy{ 0.0 };
+		float averageHighEnergy{ 0.0 };
+
+		for (int i = 0; i < previousLowEnergy.size(); i++) {
+			if (previousLowEnergy[i] > 0.0f) {
+				averageLowEnergy += previousLowEnergy[i];
+				N += 1.0f;
+			}
+		}
+		this->averageLowEnergy = averageLowEnergy / N;
+		N = 0.0f;
+
+		for (int i = 0; i < previousMidEnergy.size(); i++) {
+			if (previousMidEnergy[i] > 0.0f) {
+				averageMidEnergy += previousMidEnergy[i];
+				N += 1.0f;
+			}
+		}
+		this->averageMidEnergy = averageMidEnergy / N;
+		N = 0.0f;
+
+		for (int i = 0; i < previousHighEnergy.size(); i++) {
+			if (previousHighEnergy[i] > 0.0f) {
+				averageHighEnergy += previousHighEnergy[i];
+				N += 1.0f;
+			}
+		}
+		this->averageHighEnergy = averageHighEnergy / N;
+	}
+
+
+
 };
