@@ -16,13 +16,15 @@ public:
 	Grid& grid;
 	Simulation& simulation;
 	ColorMap& color_map;
+	ColorMap& pulse_color_map;
 	sf::VertexArray agent_vertices;
 	sf::VertexArray trail_map_vertices;
 
-	Renderer(Simulation& simulation, Grid& grid, ColorMap& color_map) :
+	Renderer(Simulation& simulation, Grid& grid, ColorMap& color_map, ColorMap& pulse_color_map) :
 		simulation{ simulation },
 		grid{ grid },
-		color_map{ color_map } {
+		color_map{ color_map },
+		pulse_color_map{ pulse_color_map } {
 		agent_vertices = sf::VertexArray(sf::Points, simulation.get_list_of_agents().size());
 		trail_map_vertices = sf::VertexArray(sf::Points, static_cast<int>(grid.width) * static_cast<int>(grid.height));
 	}
@@ -61,7 +63,26 @@ public:
 					uint8_t color_value{};
 					color_value = static_cast<uint8_t>(255 * scent_value);
 					//trail_map_vertices[k].color = sf::Color(color_value, color_value, color_value);
-					trail_map_vertices[k].color = color_map.color_vec[static_cast<int>(scent_value * 100)];
+					if (simulation.pulse_flag) {
+						//trail_map_vertices[k].color = color_map.color_vec[static_cast<int>(scent_value * color_map.max_iter)];
+						//trail_map_vertices[k].color.a = color_value;
+
+						trail_map_vertices[k].color = pulse_color_map.color_vec[static_cast<int>(scent_value * pulse_color_map.max_iter)];
+						/*
+						if (scent_value <= 0.5) {
+							trail_map_vertices[k].color = pulse_color_map.color_vec[static_cast<int>(scent_value * pulse_color_map.max_iter)];
+						}
+						else {
+							trail_map_vertices[k].color = color_map.color_vec[static_cast<int>(scent_value * color_map.max_iter)];
+						}
+						*/
+
+						//trail_map_vertices[k].color.a = static_cast<uint8_t>(207);
+					}
+					else {
+						trail_map_vertices[k].color = color_map.color_vec[static_cast<int>(scent_value * color_map.max_iter)];
+					}
+
 					simulation.trail_map.matrix[i][j] = std::max(0.0f, simulation.trail_map.matrix[i][j] - 0.05f);
 				}
 				else {

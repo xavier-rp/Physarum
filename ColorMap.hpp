@@ -19,7 +19,13 @@ public:
 		{ "black_purple", [this]() { compute_black_purple(); } },
 		{ "black_purple_white", [this]() { compute_black_purple_white(); } },
 		{ "black_white", [this]() { compute_black_and_white(); } },
-		{ "purple_white", [this]() { compute_purple_white(); } }};
+		{ "purple_white", [this]() { compute_purple_white(); } },
+		{ "green_white", [this]() { compute_green_white(); } },
+		{ "green_purple", [this]() { compute_green_purple(); } },
+		{ "green_white_purple", [this]() { compute_green_white_purple(); } },
+		{ "purple_green_white", [this]() { compute_purple_green_white(); } },
+		{ "green_purple_white", [this]() { compute_green_purple_white(); } },
+		{ "cyan_purple_white", [this]() { compute_cyan_purple_white(); } }};
 	// Weird Syntax, but it has to be binded to the instance see : https://stackoverflow.com/questions/70804439/how-to-use-stdfunctionvoid-as-a-typename-in-initializing-a-map
 
 	ColorMap(int max_iter, std::string cmap_str, bool reverse = false, bool cyclical = false, uint32_t nonlinear_dividor = 30) :
@@ -67,6 +73,15 @@ public:
 	}
 
 	void compute_black_purple_white() {
+		for (int i{ 0 }; i < 225; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::min(i, 163), std::min(i, 88), std::min(i, 224), 255));
+		}
+		for (int i{ 0 }; i < 168; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::min(255, 163 + i), 88 + i, std::min(224 + i, 255), 255));
+		}
+	}
+
+	void compute_black_purple_white2() {
 		for (int i{ 0 }; i < 256; ++i) {
 			total_cmap_vec.push_back(sf::Color(i, 0, i, 255));
 		}
@@ -80,6 +95,54 @@ public:
 			total_cmap_vec.push_back(sf::Color(std::min(255, 163 + i), 88 + i, std::min(224 + i, 255), 255));
 		}
 		*/
+		for (int i{ 0 }; i < 168; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::min(255, 163 + i), 88 + i, std::min(224 + i, 255), 255));
+		}
+	}
+
+	void compute_green_white() {
+		for (int i{ 0 }; i < 168; ++i) {
+			total_cmap_vec.push_back(sf::Color(88 + i, std::min(255, 224 + i), 88 + i, 255));
+		}
+	}
+
+	void compute_green_purple() {
+		for (int i{ 0 }; i < 137; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::min(88 + i, 163), std::max(224 - i, 88), std::min(88 + i, 224), 255));
+		}
+	}
+
+	void compute_green_white_purple() {
+		for (int i{ 0 }; i < 168; ++i) {
+			total_cmap_vec.push_back(sf::Color(88 + i, std::min(255, 224 + i), 88 + i, 255));
+		}
+		for (int i{ 0 }; i < 168; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::max(255 - i, 163), 255 - i, std::max(255 - i , 224), 255));
+		}
+	}
+
+	void compute_purple_green_white() {
+		for (int i{ 0 }; i < 137; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::max(88, 163 - i), std::min(224, 88 + i), std::max(88, 224 - i), 255));
+		}
+		for (int i{ 1 }; i < 168; ++i) {
+			total_cmap_vec.push_back(sf::Color(88 + i, std::min(255, 224 + i), 88 + i, 255));
+		}
+	}
+
+	void compute_green_purple_white() {
+		for (int i{ 0 }; i < 137; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::min(88 + i, 163), std::max(224 - i, 88), std::min(88 + i, 224), 255));
+		}
+		for (int i{ 1 }; i < 168; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::min(255, 163 + i), 88 + i, std::min(224 + i, 255), 255));
+		}
+	}
+
+	void compute_cyan_purple_white() {
+		for (int i{ 0 }; i < 137; ++i) {
+			total_cmap_vec.push_back(sf::Color(std::min(88 + i, 163), std::max(224 - i, 88), std::min(219 + i, 224), 255));
+		}
 		for (int i{ 1 }; i < 168; ++i) {
 			total_cmap_vec.push_back(sf::Color(std::min(255, 163 + i), 88 + i, std::min(224 + i, 255), 255));
 		}

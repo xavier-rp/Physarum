@@ -150,8 +150,8 @@ int main()
 {
 	// Load audio file
 	// load an audio buffer from a sound file
-	sf::ContextSettings settings;
-	settings.antialiasingLevel = 8;
+	//sf::ContextSettings settings;
+	//settings.antialiasingLevel = ;
 	int FFTLength = 8192;//16384;
 
 	sf::SoundBuffer buffer;
@@ -170,7 +170,16 @@ int main()
 	int window_width{ 600 };
 	int window_height{ 400 };
 
+	//ColorMap color_map{ 100, "purple_white", false, false, 1 };
+	//ColorMap pulse_color_map{ 100, "green_white", false, false, 1 };
+
+	//ColorMap color_map{ 100, "green_purple", true, false, 1 };
+	//ColorMap pulse_color_map{ 100, "green_purple", false, false, 1 };
+
 	ColorMap color_map{ 100, "purple_white", false, false, 1 };
+	ColorMap pulse_color_map{ 100, "green_purple_white", false, false, 1};
+
+
 
 	TrailMap trail_map(window_width, window_height);
 
@@ -180,14 +189,15 @@ int main()
 
 	std::vector<Agent> list_of_agents;
 
-	list_of_agents = build_list_of_agents_random_inside_circle(40000, window_width / 5.0f);
+	list_of_agents = build_list_of_agents_random_on_circle(20000, window_width / 5.0f);
+	//list_of_agents = build_list_of_agents_random_inside_circle(40000, window_width / 5.0f);
 	//list_of_agents = build_list_of_agents_uniform_circle(10000);
 	//list_of_agents = build_list_of_agents_random_in_grid(5000, grid);
 
 	Simulation sim{ grid, list_of_agents, trail_map };
 	sim.set_FFT_parameters(sampleRate, FFTLength);
 
-	Renderer renderer{ sim, grid, color_map };
+	Renderer renderer{ sim, grid, color_map, pulse_color_map};
 
 	// initialize and play our custom stream
 	MyStream playing_stream;
@@ -202,6 +212,7 @@ int main()
 	sf::Time elapsedFrequency = clockFrequency.getElapsedTime();
 	int currentSampleIndex{};
 
+	sim.perturbation_flag = true;
 	// Main loop
 	while (window.isOpen())
 	{
@@ -224,15 +235,15 @@ int main()
 		sim.set_amplitudes(computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples));//(currentSampleIndex, 16384, samples);
 		sim.compute_band_energy();
 		//std::cout << sim.stepCount << "  " << sim.stepCount % 100 << std::endl;
-		if (elapsedLoop.asSeconds() > 0.1) { // && sim.stepCount % 26 >= 25
-			loopClock.restart();
-			sim.perturbation_flag = true;
-		}
+		//if (elapsedLoop.asSeconds() > 0.1) { // && sim.stepCount % 26 >= 25
+		//	loopClock.restart();
+		//	sim.perturbation_flag = true;
+		//}
 		//sim.set_amplitudes(computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples));//(currentSampleIndex, 16384, samples);
 		//sim.compute_band_energy();
 
 		sim.step();
-		sim.perturbation_flag = false;
+		//sim.perturbation_flag = false;
 		elapsedLoop = loopClock.getElapsedTime();
 		// Clear the window
 		/*
@@ -392,7 +403,7 @@ int main3() {
 
 	Simulation sim{grid, list_of_agents, trail_map};
 
-	Renderer renderer{ sim, grid, color_map }; 
+	Renderer renderer{ sim, grid, color_map, color_map}; 
 
 	while (window.isOpen())
 	{
