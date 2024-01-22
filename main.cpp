@@ -93,7 +93,7 @@ std::vector<Agent> build_list_of_agents_random_inside_circle(int nb_of_agents, f
 	return list_of_agents;
 }
 
-std::vector<float> computeFrequencyAmplitudes(int currentIndex, int nbOfSamples, const sf::Int16* samples) {
+std::vector<float> computeFrequencyAmplitudes(int currentIndex, int nbOfSamples, const sf::Int16* samples, sf::Uint64 sampleCount) {
 	double* in1;
 	double* in2;
 	fftw_complex *out1;
@@ -112,6 +112,10 @@ std::vector<float> computeFrequencyAmplitudes(int currentIndex, int nbOfSamples,
 		if (centeringIndex < 0) {
 			in1[i] = static_cast<double>(0);
 			in2[i] = static_cast<double>(0);
+		}
+		else if (centeringIndex + i >= sampleCount){
+			in1[i] = static_cast<double>(0.0);
+			in2[i] = static_cast<double>(0.0);
 		}
 		else {
 			in1[i] = static_cast<double>(samples[centeringIndex + 2 * i]);
@@ -155,7 +159,7 @@ int main()
 	int FFTLength = 8192;//16384;
 
 	sf::SoundBuffer buffer;
-	if (!buffer.loadFromFile("audio/lm.wav"))
+	if (!buffer.loadFromFile("audio/Chupi.wav"))
 	{
 		std::cout << "Failed to load audio file!" << std::endl;
 		return -1;
@@ -176,8 +180,11 @@ int main()
 	//ColorMap color_map{ 100, "green_purple", true, false, 1 };
 	//ColorMap pulse_color_map{ 100, "green_purple", false, false, 1 };
 
-	ColorMap color_map{ 100, "purple_white", false, false, 1 };
-	ColorMap pulse_color_map{ 100, "green_purple_white", false, false, 1};
+	//ColorMap color_map{ 100, "purple_white", false, false, 1 };
+	//ColorMap color_map{ 1000, "green_purple_white", false, false, 1 };
+	//ColorMap pulse_color_map{ 1000, "green_purple_white", false, false, 1};
+
+	ColorMap color_map{ 1000, "jet", true, false, 1 };
 
 
 
@@ -189,7 +196,7 @@ int main()
 
 	std::vector<Agent> list_of_agents;
 
-	list_of_agents = build_list_of_agents_random_on_circle(20000, window_width / 5.0f);
+	list_of_agents = build_list_of_agents_random_on_circle(10000, window_width / 5.0f);
 	//list_of_agents = build_list_of_agents_random_inside_circle(40000, window_width / 5.0f);
 	//list_of_agents = build_list_of_agents_uniform_circle(10000);
 	//list_of_agents = build_list_of_agents_random_in_grid(5000, grid);
@@ -197,7 +204,7 @@ int main()
 	Simulation sim{ grid, list_of_agents, trail_map };
 	sim.set_FFT_parameters(sampleRate, FFTLength);
 
-	Renderer renderer{ sim, grid, color_map, pulse_color_map};
+	Renderer renderer{ sim, grid, color_map};
 
 	// initialize and play our custom stream
 	MyStream playing_stream;
@@ -231,9 +238,17 @@ int main()
 		window.draw(renderer.trail_map_vertices);
 		//window.draw(renderer.agent_vertices);
 		window.display();
+		
+		if (playing_stream.getStatus() == sf::SoundSource::Playing) {
+			sim.set_amplitudes(computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples, sampleCount));
+			//sim.set_amplitudes(computeFrequencyAmplitudes(playing_stream.getPlayingOffset() * sampleRate * 2, FFTLength, samples, sampleCount));
+		}
+		else {
 
-		sim.set_amplitudes(computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples));//(currentSampleIndex, 16384, samples);
-		sim.compute_band_energy();
+			sim.set_amplitudes(std::vector<float>(100, 0.0));
+		}
+		//sim.set_amplitudes(computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples));//(currentSampleIndex, 16384, samples);
+
 		//std::cout << sim.stepCount << "  " << sim.stepCount % 100 << std::endl;
 		//if (elapsedLoop.asSeconds() > 0.1) { // && sim.stepCount % 26 >= 25
 		//	loopClock.restart();
@@ -341,7 +356,7 @@ int main2()
 			clockSamples.restart();
 		}
 		if (elapsedFrequency.asSeconds() > 1.0f/48.0f) {
-			amplitudes = computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples);//(currentSampleIndex, 16384, samples);
+			amplitudes = computeFrequencyAmplitudes(globalClock.getElapsedTime().asSeconds() * sampleRate * 2, FFTLength, samples, sampleCount);//(currentSampleIndex, 16384, samples);
 			frequencyRenderer.renderFrequencies(amplitudes);
 			clockFrequency.restart();
 		}
@@ -398,12 +413,12 @@ int main3() {
 	list_of_agents = build_list_of_agents_random_inside_circle(30000, window_width / 5.0f);
 	*/
 
-	list_of_agents = build_list_of_agents_random_inside_circle(30000, window_width / 5.0f);
+	list_of_agents = build_list_of_agents_random_inside_circle(20, window_width / 5.0f);
 
 
 	Simulation sim{grid, list_of_agents, trail_map};
 
-	Renderer renderer{ sim, grid, color_map, color_map}; 
+	Renderer renderer{ sim, grid, color_map}; 
 
 	while (window.isOpen())
 	{

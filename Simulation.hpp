@@ -116,6 +116,64 @@ public:
 		}
 	}
 
+	void update_position_cyclical(Agent& agent) {
+
+		sf::Vector2f current_position{agent.get_position()};
+		sf::Vector2f new_position{current_position + agent.get_velocity_vector()};
+
+
+		if (current_position.x < grid.x_min) {
+			new_position += sf::Vector2f(2.0f * grid.x_max, 0.0f);
+			//agent.update_orientation(dis(gen) * 6.283185f);
+		}
+		else if (new_position.x > grid.x_max) {
+			new_position += sf::Vector2f(-2.0f * grid.x_max, 0.0f);
+			//agent.update_orientation(dis(gen) * 6.283185f);
+		}
+		if (current_position.y < grid.y_min) {
+			new_position += sf::Vector2f(0.0f, 2.0f * grid.y_max);
+			//agent.update_orientation(dis(gen) * 6.283185f);
+
+		}
+		else if (current_position.y > grid.y_max) {
+
+			new_position += sf::Vector2f(0.0f, -2.0f * grid.y_max);
+			//agent.update_orientation(dis(gen) * 6.283185f);
+		}
+		
+		agent.set_position(new_position);
+		
+	}
+
+	void update_position_cyclical_random_orientation(Agent& agent) {
+
+		sf::Vector2f current_position{agent.get_position()};
+		sf::Vector2f new_position{current_position + agent.get_velocity_vector()};
+
+
+		if (current_position.x < grid.x_min) {
+			new_position += sf::Vector2f(2.0f * grid.x_max, 0.0f);
+			agent.update_orientation(dis(gen) * 6.283185f);
+		}
+		else if (new_position.x > grid.x_max) {
+			new_position += sf::Vector2f(-2.0f * grid.x_max, 0.0f);
+			agent.update_orientation(dis(gen) * 6.283185f);
+		}
+		if (current_position.y < grid.y_min) {
+			new_position += sf::Vector2f(0.0f, 2.0f * grid.y_max);
+			agent.update_orientation(dis(gen) * 6.283185f);
+
+		}
+		else if (current_position.y > grid.y_max) {
+
+			new_position += sf::Vector2f(0.0f, -2.0f * grid.y_max);
+			agent.update_orientation(dis(gen) * 6.283185f);
+		}
+
+		agent.set_position(new_position);
+
+	}
+
 	void update_position_no_stack(Agent& agent) {
 
 		sf::Vector2f current_position{agent.get_position()};
@@ -147,7 +205,7 @@ public:
 
 	void update_agent_position(Agent& agent, bool perturb, bool midPertubationFlag) {
 
-		
+		/*
 		if (pulse_flag) {
 			agent.velocity = 1.0f;// pertubationPower * 2.0f;
 			agent.update_orientation(agent.get_orientation());
@@ -156,6 +214,7 @@ public:
 			agent.velocity = 1.0f;
 			agent.update_orientation(agent.get_orientation());
 		}
+		*/
 		
 
 		if (perturb) {
@@ -170,17 +229,16 @@ public:
 
 		
 		// TODO REACTIVATE FOR COHERENT MOVEMENT FOR A GIVEN PERTURBATION
-		
+		/*
 		if (!midPertubationFlag) { 
 			update_orientation(agent);
 		}
-		
+		*/
 		update_orientation(agent);
 
-		//update_orientation(agent);
-
-
-		update_position(agent);
+		update_position_cyclical_random_orientation(agent);
+		//update_position_cyclical(agent);
+		//update_position(agent);
 		//update_position_no_stack(agent);
 
 	}
@@ -193,13 +251,23 @@ public:
 		if (matrix_position.x < static_cast<int>(grid.width) && matrix_position.x >= 0 && matrix_position.y < static_cast<int>(grid.height) && matrix_position.y >= 0) {
 			trail_map.matrix[matrix_position.y][matrix_position.x] = 1.0f;
 
-			//draw_arrow_heads(agent, matrix_position);
+			draw_arrow_heads(agent, matrix_position);
 			
 		}
 
 	}
 
 	void draw_arrow_heads(Agent& agent, sf::Vector2i matrix_position) {
+
+		/*
+		Change the center of the head to get a kind of effect
+
+		Put them all equal for smooth heat
+
+		Make center 1.0f and surronding values lesser (but will leave trails of single pixels
+
+		or just disable the function for pixels only
+		*/
 
 		for (int offset_x = -1; offset_x <= 1; offset_x++) {
 			for (int offset_y = -1; offset_y <= 1; offset_y++) {
@@ -211,11 +279,11 @@ public:
 					//std::cout << trail_map.matrix[pixel_pos.y][pixel_pos.x] << std::endl;
 
 					if (offset_y == 0 && offset_x == 0) {
-						trail_map.matrix[pixel_pos.y][pixel_pos.x] = 1.0f;
+						trail_map.matrix[pixel_pos.y][pixel_pos.x] = 0.3f;
 					}
 					else {
 
-						trail_map.matrix[pixel_pos.y][pixel_pos.x] = 0.8f;
+						trail_map.matrix[pixel_pos.y][pixel_pos.x] = 0.9f;
 					}
 				}
 			}
@@ -274,6 +342,7 @@ public:
 				if (bandsEnergy[0] > bandsAverageEnergy[0]) {
 					pulse_flag = true;
 					nudge = bandsEnergy[0] / energyThresholds[0]; // TODO attention ça devrait porter un autre nom sinon ça peut affecter le second.
+					//std::cout << stepCount << " ; " << "BassFlag" << std::endl;
 				}
 				else {
 					pulse_flag = false;
@@ -281,13 +350,13 @@ public:
 				
 				if (bandsEnergy[1] > bandsAverageEnergy[1] + 1.0*stdBandsEnergy[1]) {
 					midPerturbationFlag = true;
-					std::cout << stepCount << " ; " << " == " << "MidPertubationFlag!\n";
+					//std::cout << stepCount << " ; " << " == " << "MidPertubationFlag!\n";
 				}
 
 				if (bandsEnergy[1] > bandsAverageEnergy[1] + 1.5 * stdBandsEnergy[1]) {
 
 					heavyMidPerturbationFlag = true;
-					std::cout << stepCount << " ; " << " == " << "heavyMidPertubationFlag!\n";
+					//std::cout << stepCount << " ; " << " == " << "heavyMidPertubationFlag!\n";
 
 					if (dis(gen) < 0.5) {
 						perturb_x = -1.0f;
@@ -305,7 +374,9 @@ public:
 				}
 
 				if (bandsEnergy[2] > bandsAverageEnergy[2] + 2.0f*stdBandsEnergy[2]) {
-					highPerutbationFlag = true * (previous_steps_perturbed < 1);
+					heavyMidPerturbationFlag = false;
+					midPerturbationFlag = false;
+					highPerutbationFlag = true; // (previous_steps_perturbed < 1);
 					if (highPerutbationFlag) {
 						nudge = (bandsEnergy[2] - bandsAverageEnergy[2]) / (energyThresholds[2] - bandsAverageEnergy[2]);//std::powf(0.05, static_cast<int>(previous_steps_perturbed)); //* 0.005;
 					}
@@ -329,24 +400,27 @@ public:
 		}
 		
 		//highPerutbationFlag = false;
+		//midPerturbationFlag = false;
+		//heavyMidPerturbationFlag = false;
 		//pulse_flag = false;
 
 		for (Agent& agent : list_of_agents) {
 
 			
 			if (midPerturbationFlag) {
-				
+				/*
 				if (dis(gen) < 0.5) {
 					agent.set_orientation(agent.get_orientation() + 0.005f);
 				}
 				else {
 					agent.set_orientation(agent.get_orientation() - 0.005f);
 				}
+				*/
 
 				if (heavyMidPerturbationFlag) {
 					//agent.set_orientation(agent.get_orientation() + 0.2f); //rotation
-					if (dis(gen) < 0.5) {
-						agent.set_orientation(static_cast<float>(stepCount) * 0.2f); //coherent rotation
+					if (dis(gen) < 1.5) {
+						agent.set_orientation(agent.get_orientation() + static_cast<float>(stepCount) * 0.2f); //coherent rotation
 					}
 					else {
 						agent.set_orientation(3.1415f * static_cast<float>(stepCount) * 0.2f); //coherent rotation

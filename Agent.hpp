@@ -6,6 +6,7 @@ class Agent {
 
 public:
 
+	float radToDegreeConverter{3.141592f / 180.0f};
 	float orientation {};
 	float velocity{};
 	sf::Vector2f velocity_vector{};
@@ -22,8 +23,8 @@ public:
 		sensor_offset_distance{ sensor_offset_distance },
 		sensor_width{ sensor_width } {
 
-		this->orientation = orientation * 3.141592f / 180.0f;
-		this->sensor_angle_offset = sensor_angle_offset * 3.141592f / 180.0f;
+		this->orientation = orientation * radToDegreeConverter;
+		this->sensor_angle_offset = sensor_angle_offset * radToDegreeConverter;
 
 		velocity_vector.x = velocity * std::cos(orientation);
 		velocity_vector.y = velocity * std::sin(orientation);
