@@ -12,20 +12,6 @@
 
 
 class Simulation {
-private:
-	std::vector<float> amplitudes{}; //Returned by an FFT
-	unsigned int sampleRate{};
-	int FFTLength{};
-	float binSize{};
-	std::vector<float> bandsRange {25.0f, 250.0f, 1500.0f, 20000.0f};//{25.0f, 250.0f, 2000.0f, 20000.0f};
-	std::vector<float> bandsEnergy {0.0f, 0.0f, 0.0f};
-	std::vector<float> bandsAverageEnergy {0.0f, 0.0f, 0.0f};
-	std::vector<float> stdBandsEnergy {0.0f, 0.0f, 0.0f};
-	std::vector<float> energyThresholds {0.0f, 0.0f, 0.0f};
-	std::vector<float> previousLowEnergy = std::vector<float>(100, 0.0f);
-	std::vector<float> previousMidEnergy = std::vector<float>(100, 0.0f); //{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-	std::vector<float> previousHighEnergy = std::vector<float>(100, 0.0f); //{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-
 
 public:
 	Grid grid;
@@ -34,11 +20,7 @@ public:
 	std::random_device rd{};
 	std::mt19937 gen{rd()};
 	std::uniform_real_distribution<float> dis{0.0, 1.0};
-	bool perturbation_flag{ false };
 	int stepCount{ 0 };
-	bool pulse_flag{ false };
-	int previousStepsMidPerturbed{ 0 };
-	int previous_steps_perturbed{ 0 };
 
 	Simulation(Grid grid, std::vector<Agent> list_of_agents, TrailMap trail_map) :
 		grid{ grid },
@@ -203,37 +185,8 @@ public:
 		}
 	}
 
-	void update_agent_position(Agent& agent, bool perturb, bool midPertubationFlag) {
+	void update_agent_position(Agent& agent) {
 
-		/*
-		if (pulse_flag) {
-			agent.velocity = 1.0f;// pertubationPower * 2.0f;
-			agent.update_orientation(agent.get_orientation());
-		}
-		else {
-			agent.velocity = 1.0f;
-			agent.update_orientation(agent.get_orientation());
-		}
-		*/
-		
-
-		if (perturb) {
-			//current_position += sf::Vector2f(4.0f * (dis(gen) - 0.5f), 4.0f * (dis(gen) - 0.5f));
-			//agent.orientation += (360.0f * pertubationPower) * (dis(gen) - 0.5f);// dis(gen);
-			agent.update_orientation(agent.orientation + 2.0f * 3.1415 * (dis(gen) - 0.5f));
-		}
-
-		//sf::Vector2i matrix_position;
-		//matrix_position.x = static_cast<int>(agent.get_position().x + grid.x_max);
-		//matrix_position.y = static_cast<int>(-1.0f * agent.get_position().y + grid.y_max);
-
-		
-		// TODO REACTIVATE FOR COHERENT MOVEMENT FOR A GIVEN PERTURBATION
-		/*
-		if (!midPertubationFlag) { 
-			update_orientation(agent);
-		}
-		*/
 		update_orientation(agent);
 
 		update_position_cyclical_random_orientation(agent);
@@ -326,252 +279,17 @@ public:
 	}
 
 	void step() {
-		float perturb_chance{ dis(gen) };
-		float nudge{ dis(gen) };
-		bool midPerturbationFlag{ false };
-		bool heavyMidPerturbationFlag{ false };
-		bool highPerutbationFlag{ false };
-		float perturb_x{ 0.0 };
-		float perturb_y{ 0.0 };
 
-		compute_band_energy();
-
-		if (stepCount > 0) {
-			if (perturbation_flag) {
-				
-				if (bandsEnergy[0] > bandsAverageEnergy[0]) {
-					pulse_flag = true;
-					nudge = bandsEnergy[0] / energyThresholds[0]; // TODO attention ça devrait porter un autre nom sinon ça peut affecter le second.
-					//std::cout << stepCount << " ; " << "BassFlag" << std::endl;
-				}
-				else {
-					pulse_flag = false;
-				}
-				
-				if (bandsEnergy[1] > bandsAverageEnergy[1] + 1.0*stdBandsEnergy[1]) {
-					midPerturbationFlag = true;
-					//std::cout << stepCount << " ; " << " == " << "MidPertubationFlag!\n";
-				}
-
-				if (bandsEnergy[1] > bandsAverageEnergy[1] + 1.5 * stdBandsEnergy[1]) {
-
-					heavyMidPerturbationFlag = true;
-					//std::cout << stepCount << " ; " << " == " << "heavyMidPertubationFlag!\n";
-
-					if (dis(gen) < 0.5) {
-						perturb_x = -1.0f;
-					}
-					else {
-						perturb_x = 1.0f;
-					}
-					if (dis(gen) < 0.5) {
-						perturb_y = -1.0f;
-					}
-					else {
-						perturb_y = 1.0f;
-					}
-
-				}
-
-				if (bandsEnergy[2] > bandsAverageEnergy[2] + 2.0f*stdBandsEnergy[2]) {
-					heavyMidPerturbationFlag = false;
-					midPerturbationFlag = false;
-					highPerutbationFlag = true; // (previous_steps_perturbed < 1);
-					if (highPerutbationFlag) {
-						nudge = (bandsEnergy[2] - bandsAverageEnergy[2]) / (energyThresholds[2] - bandsAverageEnergy[2]);//std::powf(0.05, static_cast<int>(previous_steps_perturbed)); //* 0.005;
-					}
-					//if (nudge < bandsEnergy[1] / energyThresholds[1]) {
-
-						//std::cout << stepCount << " ; " << nudge << " == " << "Perturb!\n";
-						//std::cout << stepCount << " ; " << bandsAverageEnergy[2] << " : " << bandsEnergy[2] << " : " << bandsAverageEnergy[2] + 2.5f * stdBandsEnergy[2] << " : " << nudge <<  " == " << "HighPertubationFlag!\n";
-					//}
-				}
-				/*
-				else if (bandsEnergy[2] > bandsAverageEnergy[2] + 1.0f * stdBandsEnergy[2] && bandsEnergy[2] < bandsAverageEnergy[2] + 2.0f * stdBandsEnergy[2]) {
-					nudge = (bandsEnergy[2] - bandsAverageEnergy[2]) / (energyThresholds[2] - bandsAverageEnergy[2]) * 0.005;
-					//if (nudge < bandsEnergy[1] / energyThresholds[1]) {
-					perturb = true;
-					//std::cout << stepCount << " ; " << nudge << " == " << "Perturb!\n";
-					std::cout << stepCount << " ; " << 222222222 << nudge << " == " << "Perturb!\n";
-					//}
-				}
-				*/
-			}
-		}
-		
-		//highPerutbationFlag = false;
-		//midPerturbationFlag = false;
-		//heavyMidPerturbationFlag = false;
-		//pulse_flag = false;
 
 		for (Agent& agent : list_of_agents) {
 
-			
-			if (midPerturbationFlag) {
-				/*
-				if (dis(gen) < 0.5) {
-					agent.set_orientation(agent.get_orientation() + 0.005f);
-				}
-				else {
-					agent.set_orientation(agent.get_orientation() - 0.005f);
-				}
-				*/
-
-				if (heavyMidPerturbationFlag) {
-					//agent.set_orientation(agent.get_orientation() + 0.2f); //rotation
-					if (dis(gen) < 1.5) {
-						agent.set_orientation(agent.get_orientation() + static_cast<float>(stepCount) * 0.2f); //coherent rotation
-					}
-					else {
-						agent.set_orientation(3.1415f * static_cast<float>(stepCount) * 0.2f); //coherent rotation
-					}
-
-					/*
-					if (heavyMidPerturbationChooser < 0.5) {
-					if (dis(gen) < 0.5) {
-						agent.set_position(agent.get_position() + sf::Vector2f(perturb_x, perturb_y));
-					}
-					else {
-						agent.set_position(agent.get_position() - sf::Vector2f(perturb_x, perturb_y));
-					}
-					}
-					else {
-						agent.set_orientation(agent.get_orientation() + 0.002f);
-					}
-					*/
-				}
-				
-
-			}
-			
-
-			update_agent_position(agent, highPerutbationFlag, midPerturbationFlag);
+			update_agent_position(agent);
 			//update_trail_map();
 			update_trail_map_with_agents(agent);
 
 		}
-		if (highPerutbationFlag) {
-			previous_steps_perturbed += 1;
-		}
-		else {
-			previous_steps_perturbed = 0;
-		}
+
 		stepCount += 1;
-
-	}
-
-	void set_FFT_parameters(unsigned int sampleRate, int FFTLength) {
-		this->sampleRate = sampleRate;
-		this->FFTLength = FFTLength;
-		this->binSize = static_cast<float>(sampleRate) / static_cast<float>(FFTLength);
-	}
-
-	void set_amplitudes(std::vector<float> amplitudesVector) {
-		this->amplitudes = amplitudesVector;
-	}
-
-	void compute_band_energy() {
-		float energyLow{ 0 };
-		float energyMid{ 0 };
-		float energyHigh{ 0 };
-		float binFreq{ 0.0 };
-
-		for (int i = 0; i < amplitudes.size(); i++) {
-			binFreq = static_cast<float>(i) * binSize;
-			if (binFreq >= bandsRange[2] && binFreq < bandsRange[3]) {
-				energyHigh += amplitudes[i];
-			}
-			else if (binFreq >= bandsRange[1] && binFreq < bandsRange[2]) {
-				energyMid += amplitudes[i];
-			}
-			else if (binFreq >= bandsRange[0] && binFreq < bandsRange[1]) {
-				energyLow += amplitudes[i];
-			}
-
-		}
-		
-		bandsEnergy[0] = energyLow;
-		bandsEnergy[1] = energyMid;
-		bandsEnergy[2] = energyHigh;
-
-		previousLowEnergy[stepCount % 100] = energyLow;
-		previousMidEnergy[stepCount % 100] = energyMid;
-		previousHighEnergy[stepCount % 100] = energyHigh;
-
-		energyThresholds[0] = std::max(*std::max_element(previousLowEnergy.begin(), previousLowEnergy.end()), energyLow);
-		energyThresholds[1] = std::max(*std::max_element(previousMidEnergy.begin(), previousMidEnergy.end()), energyLow);//std::max(energyThresholds[1], energyMid);
-		energyThresholds[2] = std::max(*std::max_element(previousHighEnergy.begin(), previousHighEnergy.end()), energyLow);//std::max(energyThresholds[2], energyHigh);
-
-		computeAverageEnergy();
-		computeStandardDeviation();
-
-	}
-
-	void computeAverageEnergy() {
-		float N{ 0.0f };
-		float averageLowEnergy{ 0.0 };
-		float averageMidEnergy{ 0.0 };
-		float averageHighEnergy{ 0.0 };
-
-		for (int i = 0; i < previousLowEnergy.size(); i++) {
-			if (previousLowEnergy[i] > 0.0f) {
-				averageLowEnergy += previousLowEnergy[i];
-				N += 1.0f;
-			}
-		}
-		bandsAverageEnergy[0] = averageLowEnergy / N;
-		N = 0.0f;
-
-		for (int i = 0; i < previousMidEnergy.size(); i++) {
-			if (previousMidEnergy[i] > 0.0f) {
-				averageMidEnergy += previousMidEnergy[i];
-				N += 1.0f;
-			}
-		}
-		bandsAverageEnergy[1] = averageMidEnergy / N;
-		N = 0.0f;
-
-		for (int i = 0; i < previousHighEnergy.size(); i++) {
-			if (previousHighEnergy[i] > 0.0f) {
-				averageHighEnergy += previousHighEnergy[i];
-				N += 1.0f;
-			}
-		}
-		bandsAverageEnergy[2] = averageHighEnergy / N;
-	}
-
-	void computeStandardDeviation() {
-
-		float N{ 0.0f };
-		float stdLowEnergy{ 0.0 };
-		float stdMidEnergy{ 0.0 };
-		float stdHighEnergy{ 0.0 };
-
-		for (int i = 0; i < previousLowEnergy.size(); i++) {
-			if (previousLowEnergy[i] > 0.0f) {
-				stdLowEnergy += (previousLowEnergy[i] - bandsAverageEnergy[0]) * (previousLowEnergy[i] - bandsAverageEnergy[0]);
-				N += 1.0f;
-			}
-		}
-		stdBandsEnergy[0] = std::sqrt(stdLowEnergy / N);
-		N = 0.0f;
-
-		for (int i = 0; i < previousMidEnergy.size(); i++) {
-			if (previousMidEnergy[i] > 0.0f) {
-				stdMidEnergy += (previousMidEnergy[i] - bandsAverageEnergy[1]) * (previousMidEnergy[i] - bandsAverageEnergy[1]);
-				N += 1.0f;
-			}
-		}
-		stdBandsEnergy[1] = std::sqrt(stdMidEnergy / N);
-		N = 0.0f;
-
-		for (int i = 0; i < previousHighEnergy.size(); i++) {
-			if (previousHighEnergy[i] > 0.0f) {
-				stdHighEnergy += (previousHighEnergy[i] - bandsAverageEnergy[2]) * (previousHighEnergy[i] - bandsAverageEnergy[2]);
-				N += 1.0f;
-			}
-		}
-		stdBandsEnergy[2] = std::sqrt(stdHighEnergy / N);
 
 	}
 
