@@ -47,15 +47,19 @@ public:
 	}
 
 	void set_orientation(float new_orientation) {
+		//Should also modify velocity vector and velocity
 		orientation = new_orientation;
 	}
 
 	void set_velocity(float new_velocity) {
+		//Should also modify orientation
 		velocity = new_velocity;
 	}
 
 	void set_velocity_vector(sf::Vector2f new_velocity) {
+		//Should also modify orientation
 		velocity_vector = new_velocity;
+		velocity = std::sqrt(velocity_vector.x * velocity_vector.x + velocity_vector.y * velocity_vector.y);
 	}
 
 	void set_x_velocity(float new_x_velocity) {
