@@ -6,9 +6,13 @@
 
 #include "SFML/Graphics.hpp"
 
+#include "ColorGradient.hpp"
+
 class ColorMap {
 public:
 	int max_iter;
+	ColorGradient colorGradient;
+	std::vector<rgb> stops;
 	std::string cmap_str;
 	bool reverse;
 	bool cyclical;
@@ -46,6 +50,38 @@ public:
 
 		compute_colors();
 
+	}
+
+	ColorMap(int max_iter, std::vector<rgb> stops, bool reverse = false, bool cyclical = false, uint32_t nonlinear_dividor = 30) :
+		stops{ stops },
+		max_iter{ max_iter },
+		reverse{ reverse },
+		cyclical{ cyclical },
+		nonlinear_dividor{ nonlinear_dividor } {
+
+		this->colorGradient = ColorGradient{};
+
+		compute_from_gradient();
+
+		if (cyclical) {
+			make_cyclical();
+		}
+		if (reverse) {
+			reverse_cmap();
+		}
+
+		compute_colors();
+
+	}
+
+	void compute_from_gradient() {
+		colorGradient.initialize(0x0, 0x3E8, stops, rgb{ 0, 0, 0 }, rgb{ 0, 0, 0 });
+		rgb color;
+		for (int i = 0; i < static_cast<int>(0x3E8); i++) {
+			color = colorGradient.getRgb(i);
+			total_cmap_vec.push_back(sf::Color(static_cast<int>(color.red), static_cast<int>(color.green), static_cast<int>(color.blue), 255));
+		}
+		return;
 	}
 
 	void compute_jet() {
